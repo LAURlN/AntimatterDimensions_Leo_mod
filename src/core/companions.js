@@ -168,7 +168,7 @@ export const CompanionEffects = {
     format: x => `Multiplies Cookie gain by ${formatX(x, 2, 2)}`,
     baseValue: 1.10,
     perLevel: 0.02,
-    scaling: "add",
+    scaling: "pow",
     cost: 1,
     tier: 1
   },
