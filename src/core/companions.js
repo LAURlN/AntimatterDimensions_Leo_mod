@@ -152,22 +152,20 @@ export const CompanionEffects = {
   FREE_GALAXY: {
     id: "free_galaxy",
     format: x => `+${formatInt(x)} Free Galaxy (Requires Companion Level 5+)`,
-    baseValue: 0, // Inactive at Level 1 logic handled in totalEffect or here? 
-    // Actually baseValue 0 works if we simply add 1 at lvl 5 and lvl 10.
-    // Let's define specific thresholds here for easier logic?
-    // Or just use custom scaling function.
+    summaryFormat: x => `+${formatInt(x)} Free Galaxy`,
+    baseValue: 0,
     scaling: "threshold",
-    thresholds: [5, 10], // Levels where value increases by 1
+    thresholds: [5, 10],
     type: "bonus",
-    cost: 1,
+    cost: 2,
     tier: 2
   },
   COOKIE_GAIN: {
     id: "cookie_gain",
     description: "Multiplies Cookie gain",
     format: x => `Multiplies Cookie gain by ${formatX(x, 2, 2)}`,
-    baseValue: 1.10,
-    perLevel: 0.02,
+    baseValue: 2.0,
+    perLevel: 0.1,
     scaling: "pow",
     cost: 1,
     tier: 1

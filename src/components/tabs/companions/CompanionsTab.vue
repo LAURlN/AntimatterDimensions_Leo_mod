@@ -24,6 +24,22 @@ export default {
   computed: {
     formatCookies() {
       return format(this.cookies, 2);
+    },
+    activeEffects() {
+      // Explicit dependency on activeSlots to ensure reactivity
+      this.activeSlots;
+      return Object.values(CompanionEffects)
+        .map(def => {
+          const value = Companions.totalEffect(def.id);
+          const isActive = def.scaling === "pow" ? value.gt(1) : value.gt(0);
+          const formatter = def.summaryFormat || def.format;
+          return {
+            id: def.id,
+            isActive,
+            displayText: formatter(value)
+          };
+        })
+        .filter(eff => eff.isActive);
     }
   },
   methods: {
@@ -473,6 +489,15 @@ export default {
       </div>
     </div>
 
+    <div v-if="activeEffects.length > 0" class="c-total-effects-summary">
+      <div class="c-total-effects-header">Total Active Effects</div>
+      <div class="c-total-effects-list">
+        <div v-for="eff in activeEffects" :key="eff.id" class="c-total-effect-item">
+          • {{ eff.displayText }}
+        </div>
+      </div>
+    </div>
+
     <h2 class="c-companions-header">Companion Bank (10x5)</h2>
     <div class="l-bank-grid">
       <div 
@@ -537,6 +562,45 @@ export default {
   font-size: 2rem;
   color: var(--color-text);
   text-shadow: 0 0 5px var(--color-text);
+}
+
+.c-total-effects-summary {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  padding: 1rem 2rem;
+  margin: 1rem 0 2rem;
+  min-width: 400px;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+  animation: summary-fade-in 0.5s ease-out;
+}
+
+@keyframes summary-fade-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.c-total-effects-header {
+  color: var(--color-accent);
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.c-total-effects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+}
+
+.c-total-effect-item {
+  font-family: Typewriter, serif;
+  color: white;
+  font-size: 0.95rem;
+  text-shadow: 0 0 2px black;
 }
 
 .l-active-grid {
