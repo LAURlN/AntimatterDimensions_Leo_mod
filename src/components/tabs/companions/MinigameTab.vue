@@ -56,7 +56,13 @@ export default {
       this.gameOver = false;
       const hasHeadStart = Companions.upgradeLevel("dino_score_start") > 0;
       this.score = hasHeadStart ? 100 : 0;
-      this.speed = hasHeadStart ? 11 : 6;
+      this.speed = hasHeadStart ? (6 + 100 / 6) : 6;
+      
+      // Auto-unlock if starting with headstart
+      if (this.score >= 100 && !player.companions.records.hasUnlockedKeyboard) {
+          player.companions.records.hasUnlockedKeyboard = true;
+          // Don't notify here to avoid spamming at start, but ensure flag is set
+      }
       this.playerY = 0;
       this.playerVelocity = 0;
       this.obstacles = [];
@@ -278,8 +284,16 @@ export default {
           obs.passed = true;
           // "speed increases 10x faster as well"
           // "stop the speed scaling at 250 score"
-          if (this.score < 250) {
-              this.speed += 0.5; 
+          if (this.score < 150) {
+              this.speed = 6 + this.score / 6;
+          } else {
+              this.speed = 31;
+          }
+
+          // Real-time Unlock Check
+          if (this.score >= 100 && !player.companions.records.hasUnlockedKeyboard) {
+              player.companions.records.hasUnlockedKeyboard = true;
+              GameUI.notify.success("New Area Unlocked: Virtual Keyboard!");
           }
         }
 

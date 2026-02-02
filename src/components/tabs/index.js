@@ -11,6 +11,7 @@ import CompanionsTab from "./companions/CompanionsTab";
 import CookieFarmTab from "./companions/CookieFarmTab";
 import MinigameTab from "./companions/MinigameTab";
 import CompanionUpgradesTab from "./companions/CompanionUpgradesTab";
+import VirtualKeyboardTab from "./companions/VirtualKeyboardTab";
 import EffarigTab from "./celestial-effarig/EffarigTab";
 import EnslavedTab from "./celestial-enslaved/EnslavedTab";
 import EternityChallengesTab from "./eternity-challenges/EternityChallengesTab";
@@ -52,6 +53,7 @@ const TabComponents = {
   CookieFarmTab,
   MinigameTab,
   CompanionUpgradesTab,
+  VirtualKeyboardTab,
   InfinityDimensionsTab,
   TimeDimensionsTab,
   OptionsSavingTab,

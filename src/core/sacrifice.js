@@ -43,7 +43,7 @@ export class Sacrifice {
     ) * (1 +
       (f("Achievement88", Achievement(88).isEffectActive) ? Achievement(88).config.effect : 0) +
       (f("TimeStudy228", TimeStudy(228).isEffectActive) ? TimeStudy(228).config.effect : 0)
-    ) * factor;
+      ) * factor;
     return base + (exponent === 1 ? "" : formatPow(exponent, places, places));
   }
 
@@ -140,9 +140,9 @@ export function sacrificeReset() {
 
 export function sacrificeBtnClick() {
   if (!Sacrifice.isVisible || !Sacrifice.canSacrifice) return;
-  if (player.options.confirmations.sacrifice) {
-    Modal.sacrifice.show();
-  } else {
+  if (ui.view.isAutomatedHotkey || !player.options.confirmations.sacrifice) {
     sacrificeReset();
+  } else {
+    Modal.sacrifice.show();
   }
 }

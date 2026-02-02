@@ -49,7 +49,7 @@ export const tabs = [
       {
         key: "companions",
         name: "Companions",
-        symbol: "C",
+        symbol: "ඞ",
         component: "CompanionsTab",
         condition: () => player.companions.records.hasUnlockedTab,
         id: 0,
@@ -79,6 +79,15 @@ export const tabs = [
         component: "CompanionUpgradesTab",
         condition: () => PlayerProgress.hasBroken(),
         id: 3,
+        hidable: true,
+      },
+      {
+        key: "keyboard",
+        name: "Virtual Keyboard",
+        symbol: "⌨️",
+        component: "VirtualKeyboardTab",
+        condition: () => player.companions.records.hasUnlockedKeyboard,
+        id: 4,
         hidable: true,
       },
     ]

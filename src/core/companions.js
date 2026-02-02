@@ -1,3 +1,4 @@
+import { shortcuts } from "./hotkeys";
 
 // Companion Upgrades
 export const CompanionUpgrades = {
@@ -283,6 +284,7 @@ export const Companions = {
 
   _cookieHistory: [],
   _lastCookies: null,
+  _lastHeldKeys: new Set(),
 
   update(diff) {
     const now = Date.now();
@@ -295,6 +297,7 @@ export const Companions = {
       }
     }
     this._lastCookies = new Decimal(currentCookies);
+    this.updateKeyboard(diff);
 
     // Prune history (keep 60s)
     const cutoff = now - 60000;
@@ -302,6 +305,49 @@ export const Companions = {
     while (this._cookieHistory.length > 0 && this._cookieHistory[0].t < cutoff) {
       this._cookieHistory.shift();
     }
+  },
+
+  updateKeyboard(diff) {
+    if (!player.companions.virtualKeypad || !player.companions.virtualKeypad.heldKeys.length) return;
+
+    ui.view.isAutomatedHotkey = true;
+    const held = new Set(player.companions.virtualKeypad.heldKeys);
+    const lastHeld = this._lastHeldKeys;
+    const newKeys = [...held].filter(k => !lastHeld.has(k));
+
+    for (const shortcut of shortcuts) {
+      if (typeof shortcut.visible === "function" && !shortcut.visible()) continue;
+      if (shortcut.visible === false) continue;
+
+      const allHeld = shortcut.keys.every(k => {
+        if (k === "mod") return held.has("ctrl") || held.has("meta") || held.has("command");
+        return held.has(k.toLowerCase());
+      });
+
+      if (allHeld) {
+        const isRepeatable = shortcut.type && shortcut.type.toLowerCase().includes("repeatable");
+
+        if (isRepeatable) {
+          // Repeatable: Trigger multiple times if diff is large (max 100 to avoid hangs)
+          // 40ms is the game's standard repeat rate for physical keys
+          const times = Math.clamp(Math.floor(diff / 40), 1, 100);
+          for (let i = 0; i < times; i++) {
+            shortcut.function();
+          }
+        } else {
+          // Non-repeatable: Only trigger if one of the keys just went "down"
+          const anyNew = shortcut.keys.some(k => {
+            if (k === "mod") return newKeys.includes("ctrl") || newKeys.includes("meta") || newKeys.includes("command");
+            return newKeys.includes(k.toLowerCase());
+          });
+          if (anyNew) {
+            shortcut.function();
+          }
+        }
+      }
+    }
+    this._lastHeldKeys = held;
+    ui.view.isAutomatedHotkey = false;
   },
 
   get cookiesGainedLastMinute() {

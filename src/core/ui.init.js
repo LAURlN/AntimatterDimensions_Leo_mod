@@ -50,6 +50,7 @@ export const state = {
     tutorialState: 0,
     tutorialActive: true,
     h2pForcedTab: undefined,
+    isAutomatedHotkey: false,
   },
   notationName: "",
   formatPreBreak: false,

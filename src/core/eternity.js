@@ -61,6 +61,10 @@ export function eternityAnimation() {
 export function eternityResetRequest() {
   if (!Player.canEternity) return;
   if (GameEnd.creditsEverClosed) return;
+  if (ui.view.isAutomatedHotkey) {
+    eternity(false, true);
+    return;
+  }
   askEternityConfirmation();
 }
 
@@ -76,13 +80,15 @@ export function eternity(force, auto, specialConditions = {}) {
   const noStudies = player.timestudy.studies.length === 0;
   if (!force) {
     if (!Player.canEternity) return false;
-    if (RealityUpgrade(10).isLockingMechanics) {
-      RealityUpgrade(10).tryShowWarningModal();
-      return false;
-    }
-    if (RealityUpgrade(12).isLockingMechanics && EternityChallenge(1).isRunning) {
-      RealityUpgrade(12).tryShowWarningModal();
-      return false;
+    if (!ui.view.isAutomatedHotkey) {
+      if (RealityUpgrade(10).isLockingMechanics) {
+        RealityUpgrade(10).tryShowWarningModal();
+        return false;
+      }
+      if (RealityUpgrade(12).isLockingMechanics && EternityChallenge(1).isRunning) {
+        RealityUpgrade(12).tryShowWarningModal();
+        return false;
+      }
     }
     EventHub.dispatch(GAME_EVENT.ETERNITY_RESET_BEFORE);
     giveEternityRewards(auto);
@@ -152,7 +158,7 @@ export function animateAndEternity(callback) {
     !RealityUpgrade(10).isLockingMechanics &&
     !(RealityUpgrade(12).isLockingMechanics && EternityChallenge(1).isRunning) &&
     ((player.dilation.active && player.options.animations.dilation) ||
-    (!player.dilation.active && player.options.animations.eternity));
+      (!player.dilation.active && player.options.animations.eternity));
 
   if (hasAnimation) {
     if (player.dilation.active) {

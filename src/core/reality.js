@@ -139,6 +139,10 @@ export function simulatedRealityCount(advancePartSimCounters) {
 export function requestManualReality() {
   if (GlyphSelection.active || !isRealityAvailable()) return;
   if (GameEnd.creditsEverClosed) return;
+  if (ui.view.isAutomatedHotkey) {
+    processManualReality(false);
+    return;
+  }
   if (player.options.confirmations.glyphSelection || ui.view.shiftDown) {
     Modal.reality.show();
     return;
@@ -152,7 +156,7 @@ export function requestManualReality() {
 }
 
 export function startManualReality(sacrifice, glyphID) {
-  if (player.options.animations.reality) {
+  if (!ui.view.isAutomatedHotkey && player.options.animations.reality) {
     runRealityAnimation();
     setTimeout(processManualReality, 3000, sacrifice, glyphID);
   } else {

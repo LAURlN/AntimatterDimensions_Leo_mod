@@ -11,6 +11,7 @@ import { supportedBrowsers } from "./supported-browsers";
 
 import Payments from "./core/payments";
 import { Farm } from "./core/farm";
+import { Companions } from "./core/companions";
 
 if (GlobalErrorHandler.handled) {
   throw new Error("Initialization failed");
@@ -542,6 +543,7 @@ export function gameLoop(passDiff, options = {}) {
   }
 
   DeltaTimeState.update(realDiff, diff);
+  Companions.update(diff);
 
   updateNormalAndInfinityChallenges(diff);
 

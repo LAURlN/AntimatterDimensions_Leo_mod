@@ -224,9 +224,6 @@ export const Farm = {
     },
 
     update(diff) {
-        // Tracker Update
-        Companions.update(diff);
-
         const now = Date.now();
         for (let i = 0; i < player.farm.plots.length; i++) {
             const plot = player.farm.plots[i];

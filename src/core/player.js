@@ -212,9 +212,14 @@ window.player = {
     records: {
       hasUnlockedTab: false,
       hasUnlockedTier2: false,
-      hasUnlockedFarm: false
+      hasUnlockedFarm: false,
+      hasUnlockedKeyboard: false
     },
-    minigameScore: 0
+    minigameScore: 0,
+    minigameHighscore: 0,
+    virtualKeypad: {
+      heldKeys: []
+    }
   },
   farm: {
     seeds: 0,
