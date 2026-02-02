@@ -214,6 +214,10 @@ export default {
       const list = slot.location === 'active' ? player.companions.active : player.companions.bank;
       if (list[slot.index]) {
         list[slot.index].name = newName;
+        if (newName.toLowerCase() === "amogus") {
+          list[slot.index].isFavorite = true;
+          this.updateSelectedCompanion();
+        }
       }
     },
     handleDelete() {
@@ -229,6 +233,7 @@ export default {
     },
     getCompanionSymbol(companion) {
       if (!companion) return "";
+      if (companion.name && companion.name.toLowerCase() === "amogus") return "ඞ";
       return this.hasFavorite(companion) ? "♥" : "★";
     },
     getSymbolPositions(count) {
@@ -294,14 +299,17 @@ export default {
       return `<div style="text-align: center;">
         <b style="font-size: 1.2em; color: var(--color-accent);">${companion.name || 'Companion'}</b><br>
         <span style="font-size: 0.9em; color: white;">Level ${companion.level || 1}</span><br>
-        <span style="font-size: 0.9em; color: ${this.hasFavorite(companion) ? '#e91e63' : 'gold'};">${symbol.repeat(companion.stars)}</span>
+        <span style="font-size: 0.9em; color: ${this.isAmogus(companion) ? '#ff0000' : (this.hasFavorite(companion) ? '#e91e63' : 'gold')};">${symbol.repeat(companion.stars)}</span>
         <div style="margin-top: 0.5rem; text-align: left;">
           ${effectsList}
         </div>
       </div>`;
     },
     hasFavorite(companion) {
-        return companion && (companion.isFavorite || companion._data.isFavorite);
+        return companion && (companion.isFavorite || (companion._data && companion._data.isFavorite));
+    },
+    isAmogus(companion) {
+        return companion && companion.name && companion.name.toLowerCase() === "amogus";
     },
     getTierColor(tier) {
       if (tier <= 1) return "white";
