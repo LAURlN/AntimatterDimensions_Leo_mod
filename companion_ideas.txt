@@ -4,15 +4,6 @@ theoretical
 
 to be implemented now (when removing something from here, make sure to add it below, unless it is just a minor bug fix)
 {
-upgrades subtab with a 3x3 with the following upgrades (visual like the infinity upgrades, unlocks permanantly when breaking infinity for the first time): 
-    - grandmas steal less cookies (can be bought 5 times, reduces from every 2. to every 3. to 4. t0 5. to 6. or 7 [it's randomly 6 or 7 every time] to none) (cost starts at 100 cookies, doubles every step)
-    - grandmas die less often (can be bought 5 times, reduces from 1% to 0.8% to 0.6% to 0.4% to 0.2% to 0%) (cost starts at 100 cookies, doubles every step)
-    - reduces seed rot chance (can be bought 5 times, reduces from 1% to 0.8% to 0.6% to 0.4% to 0.2% to 0%) (cost starts at 100 cookies, doubles every step)
-    - unlock fastfalling in dino game (cost: 1k cookies)
-    - unlock double jump in dino game (cost: 10k cookies)
-    - start each run at score 100 in dino game (make sure it starts at the right speed as well) (cost 5000 cookies)
-    - tickspeed upgrades have a highly reduced effect on seed growth (0.1% faster per upgrade [multiplicative]) (cost 100k cookies)
-    - galaxies increase cookie gain by 50% each (cost 1m cookies)
 
 }   
 
@@ -70,6 +61,15 @@ already implemented (after implementing something, move it here)
     "grandma got yeeted into space"
     "grandma challenged Leo to a 1v1"
     "grandma got cancelled"
+
+    - grandmas steal less cookies (can be bought 5 times, reduces from every 2. to every 3. to 4. t0 5. to 6. or 7 [it's randomly 6 or 7 every time] to none) (cost starts at 100 cookies, doubles every step)
+    - grandmas die less often (can be bought 5 times, reduces from 1% to 0.8% to 0.6% to 0.4% to 0.2% to 0%) (cost starts at 100 cookies, doubles every step)
+    - reduces seed rot chance (can be bought 5 times, reduces from 1% to 0.8% to 0.6% to 0.4% to 0.2% to 0%) (cost starts at 100 cookies, doubles every step)
+    - unlock fastfalling in dino game (cost: 1k cookies)
+    - unlock double jump in dino game (cost: 10k cookies)
+    - start each run at score 100 in dino game (make sure it starts at the right speed as well) (cost 5000 cookies)
+    - tickspeed upgrades have a highly reduced effect on seed growth (0.1% faster per upgrade [multiplicative]) (cost 100k cookies)
+    - galaxies increase cookie gain by 50% each (cost 1m cookies)
 }
 
 Ideas for the future (do not implement yet): 
