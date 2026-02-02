@@ -208,7 +208,10 @@ window.player = {
   cookies: DC.D0,
   companions: {
     active: Array(6).fill(null),
+    activeLoadoutName: "Active Loadout",
     bank: Array(50).fill(null),
+    loadouts: Array(8).fill(null).map(() => Array(6).fill(null)),
+    loadoutNames: Array(8).fill("Loadout"),
     records: {
       hasUnlockedTab: false,
       hasUnlockedTier2: false,

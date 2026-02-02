@@ -11,7 +11,11 @@ export default {
   data() {
     return {
       activeSlots: [],
+      activeSlots: [],
+      activeLoadoutName: "Active Loadout",
       bankSlots: [],
+      loadoutSlots: [],
+      loadoutNames: [],
       bankSlots: [],
       // Multi-select support
       selectedSlots: [], // Array of { location, index }
@@ -51,7 +55,10 @@ export default {
       
       // We need to preserve the "null" slots visually.
       this.activeSlots = Companions.active;
+      this.activeLoadoutName = Companions.activeLoadoutName;
       this.bankSlots = Companions.bank;
+      this.loadoutSlots = Companions.loadouts;
+      this.loadoutNames = player.companions.loadoutNames;
       this.cookies.copyFrom(player.cookies);
     },
     summonBasic() {
@@ -87,8 +94,8 @@ export default {
       if (this.selectedSlots.length === 1 && (this.selectedSlots[0].location !== location || this.selectedSlots[0].index !== index)) {
           // Attempt swap or move
           const prev = this.selectedSlots[0];
-          const originList = prev.location === 'active' ? player.companions.active : player.companions.bank;
-          const targetList = location === 'active' ? player.companions.active : player.companions.bank;
+          const originList = this.getList(prev.location);
+          const targetList = this.getList(location);
           
           const originItem = originList[prev.index];
           const targetItem = targetList[index];
@@ -132,7 +139,7 @@ export default {
     updateSelectedCompanion() {
       if (this.selectedSlots.length === 1) {
         const slot = this.selectedSlots[0];
-        const list = slot.location === 'active' ? player.companions.active : player.companions.bank;
+        const list = this.getList(slot.location);
         const comp = list[slot.index];
         if (comp) {
             this.selectedCompanion = new CompanionState(comp);
@@ -147,7 +154,7 @@ export default {
     toggleFavorite() {
         if (!this.selectedSlots.length || this.selectedSlots.length > 1) return;
         const slot = this.selectedSlots[0];
-        const list = slot.location === 'active' ? player.companions.active : player.companions.bank;
+        const list = this.getList(slot.location);
         const comp = list[slot.index];
         if (comp) {
             comp.isFavorite = !comp.isFavorite;
@@ -157,7 +164,7 @@ export default {
     levelUpSelected() {
         if (!this.selectedSlots.length || this.selectedSlots.length > 1) return;
         const slot = this.selectedSlots[0];
-        const list = slot.location === 'active' ? player.companions.active : player.companions.bank;
+        const list = this.getList(slot.location);
         const compData = list[slot.index];
         if (compData) {
             const compState = new CompanionState(compData);
@@ -211,7 +218,7 @@ export default {
       if (this.selectedSlots.length !== 1) return;
       
       const slot = this.selectedSlots[0];
-      const list = slot.location === 'active' ? player.companions.active : player.companions.bank;
+      const list = this.getList(slot.location);
       if (list[slot.index]) {
         list[slot.index].name = newName;
         if (newName.toLowerCase() === "amogus") {
@@ -261,8 +268,8 @@ export default {
       const effectsList = Object.entries(counts).map(([id, count]) => {
          const def = Object.values(CompanionEffects).find(e => e.id === id);
          
-         // Tier Color Logic
-         const effectiveTier = (def.tier || 1) + (count - 1);
+         // Tier Color Logic - Based on TOTAL COST (cost * count)
+         const effectiveTier = (def.cost || 1) * count;
          const color = this.getTierColor(effectiveTier);
 
          // Calculate value for this specific tier/count to show in tooltip
@@ -316,7 +323,8 @@ export default {
       if (tier === 2) return "#4caf50"; // Green
       if (tier === 3) return "#2196f3"; // Blue
       if (tier === 4) return "#9c27b0"; // Purple
-      return "#ffd700"; // Gold (5+)
+      if (tier === 5) return "#ffd700"; // Gold
+      return "#ff0000"; // Red (6+)
     },
     getCompanionColor(companion) {
       if (!companion) return "white";
@@ -330,7 +338,7 @@ export default {
       for (const [id, count] of Object.entries(counts)) {
         const def = Object.values(CompanionEffects).find(e => e.id === id);
         if (def) {
-          const effectiveTier = (def.tier || 1) + (count - 1);
+          const effectiveTier = (def.cost || 1) * count;
           if (effectiveTier > maxTier) maxTier = effectiveTier;
         }
       }
@@ -350,6 +358,30 @@ export default {
         this.updateSelectedCompanion();
         this.isDeleting = false;
         this.isBulkDeleting = false;
+    },
+    getList(location) {
+        if (location === "active") return player.companions.active;
+        if (location === "bank") return player.companions.bank;
+        if (location.startsWith("loadout-")) {
+            const index = parseInt(location.split("-")[1], 10);
+            return player.companions.loadouts[index];
+        }
+        return [];
+    },
+    swapLoadout(index) {
+        const prevTitle = this.activeLoadoutName;
+        const newTitle = this.loadoutNames[index];
+        Companions.swapLoadout(index);
+        this.selectedSlots = [];
+        this.updateSelectedCompanion();
+        GameUI.notify.success(`Swapped "${prevTitle}" with "${newTitle}"`);
+    },
+    handleLoadoutNameChange(index, event) {
+        player.companions.loadoutNames.splice(index, 1, event.target.value);
+    },
+    handleActiveLoadoutNameChange(event) {
+        Companions.activeLoadoutName = event.target.value;
+        this.activeLoadoutName = event.target.value;
     }
   }
 };
@@ -472,7 +504,15 @@ export default {
       </div>
     </div>
 
-    <h2 class="c-companions-header">Active Companions (3x2)</h2>
+    <div class="c-companions-header-row">
+      <input 
+          class="c-loadout-name-input c-loadout-name-input--active" 
+          :value="activeLoadoutName" 
+          @input="handleActiveLoadoutNameChange($event)"
+      />
+      <span class="c-header-detail"></span>
+    </div>
+
     <div class="l-active-grid">
       <div 
         v-for="(companion, i) in activeSlots" 
@@ -506,7 +546,49 @@ export default {
       </div>
     </div>
 
-    <h2 class="c-companions-header">Companion Bank (10x5)</h2>
+    <h2 class="c-companions-header">Loadouts</h2>
+    <div class="l-loadouts-container">
+      <div v-for="(loadout, lIdx) in loadoutSlots" :key="'loadout-' + lIdx" class="c-loadout-group">
+        <div class="c-loadout-header">
+          <input 
+              class="c-loadout-name-input" 
+              :value="loadoutNames[lIdx]" 
+              @input="handleLoadoutNameChange(lIdx, $event)"
+          />
+          <PrimaryButton 
+            class="o-primary-btn--subtab-option c-loadout-btn"
+            @click="swapLoadout(lIdx)"
+          >
+            Swap
+          </PrimaryButton>
+        </div>
+        <div class="l-active-grid l-loadout-grid">
+          <div 
+            v-for="(companion, i) in loadout" 
+            :key="'loadout-' + lIdx + '-' + i" 
+            class="c-companion-slot c-companion-slot--loadout"
+            :class="{ 'c-companion-slot--selected': isSelected('loadout-' + lIdx, i), 'c-companion-slot--fav': hasFavorite(companion) }"
+            :style="{ borderColor: getCompanionColor(companion) }"
+            @click="handleSlotClick('loadout-' + lIdx, i, $event)"
+            v-tooltip="getCompanionTooltip(companion)"
+          >
+            <div v-if="companion" class="c-companion-content" :style="{ background: 'radial-gradient(circle, ' + getCompanionColor(companion) + ' 0%, rgba(0,0,0,0) 80%)' }">
+              <span 
+                v-for="(pos, j) in getSymbolPositions(companion.stars)" 
+                :key="j"
+                class="c-companion-symbol-individual"
+                :style="{ transform: `translate(${pos.x * 0.5}px, ${pos.y * 0.5}px)` }"
+              >
+                {{ getCompanionSymbol(companion) }}
+              </span>
+            </div>
+            <span v-else class="c-slot-id">{{ i + 1 }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="c-companions-header">Companion Bank</h2>
     <div class="l-bank-grid">
       <div 
         v-for="(companion, i) in bankSlots" 
@@ -771,9 +853,39 @@ export default {
     width: 250px;
 }
 
-.c-name-input:focus {
+.c-name-input:focus, .c-loadout-name-input:focus {
     border-color: var(--color-accent);
     outline: none;
+}
+
+.c-loadout-name-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--color-text);
+    color: var(--color-text);
+    font-weight: bold;
+    width: 150px;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.c-loadout-name-input--active {
+    font-size: 1.5rem;
+    width: 300px;
+    margin-bottom: 1rem;
+}
+
+.c-companions-header-row {
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.c-header-detail {
+    font-size: 1.2rem;
+    opacity: 0.7;
 }
 
 .o-primary-btn--delete {
@@ -812,10 +924,56 @@ export default {
     margin-top: 1rem;
 }
 
-.o-primary-btn--bulk-junk {
-    background-color: #3e2723; /* Darker brown */
-    border-color: #5d4037;
-    color: #ffccbc; /* Light orange text */
+
+.l-loadouts-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: center;
+    max-width: 1000px;
+    margin-bottom: 2rem;
+}
+
+.c-loadout-group {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--color-accent);
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.c-loadout-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    color: var(--color-text);
+}
+
+.c-loadout-btn {
+    font-size: 0.8rem !important;
+    padding: 0.2rem 0.5rem !important;
+    min-width: unset !important;
+}
+
+.l-loadout-grid {
+    gap: 0.5rem; /* Tighter gap for loadouts */
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    margin-bottom: 0;
+}
+
+.c-companion-slot--loadout {
+    width: 40px;
+    height: 40px;
+}
+
+.c-companion-slot--loadout .c-companion-symbol-individual {
+    font-size: 1rem;
 }
 
 .o-primary-btn--bulk-junk:hover {

@@ -284,6 +284,28 @@ export const Companions = {
     return player.companions.bank.map(c => c ? new CompanionState(c) : null);
   },
 
+  get loadouts() {
+    if (!player.companions.loadouts) {
+      player.companions.loadouts = Array(8).fill(null).map(() => Array(6).fill(null));
+      player.companions.loadoutNames = Array(8).fill("Loadout");
+    }
+    // Migration: Expand if less than 8
+    while (player.companions.loadouts.length < 8) {
+      player.companions.loadouts.push(Array(6).fill(null));
+      player.companions.loadoutNames.push("Loadout");
+    }
+    return player.companions.loadouts.map(l => l.map(c => c ? new CompanionState(c) : null));
+  },
+
+  get activeLoadoutName() {
+    if (!player.companions.activeLoadoutName) player.companions.activeLoadoutName = "Active Loadout";
+    return player.companions.activeLoadoutName;
+  },
+
+  set activeLoadoutName(value) {
+    player.companions.activeLoadoutName = value;
+  },
+
   _cookieHistory: [],
   _lastCookies: null,
   _lastHeldKeys: new Set(),
@@ -587,13 +609,31 @@ export const Companions = {
 
   delete(location, index) {
     if (location === "active") {
-      player.companions.active[index] = null;
-      // Vue reactivity might need a push if array index; but we handle updates in Tab.
-      // However for array indices in Vue 2:
       player.companions.active.splice(index, 1, null);
-    } else {
+    } else if (location === "bank") {
       player.companions.bank.splice(index, 1, null);
+    } else if (location.startsWith("loadout-")) {
+      const loadoutIndex = parseInt(location.split("-")[1], 10);
+      if (player.companions.loadouts[loadoutIndex]) {
+        player.companions.loadouts[loadoutIndex].splice(index, 1, null);
+      }
     }
+  },
+
+  swapLoadout(loadoutIndex) {
+    if (!player.companions.loadouts) return;
+    const currentActive = [...player.companions.active];
+    const targetLoadout = [...player.companions.loadouts[loadoutIndex]];
+
+    // Swap arrays
+    player.companions.active = targetLoadout;
+    player.companions.loadouts.splice(loadoutIndex, 1, currentActive);
+
+    // Swap names
+    const currentName = this.activeLoadoutName;
+    const targetName = player.companions.loadoutNames[loadoutIndex];
+    this.activeLoadoutName = targetName;
+    player.companions.loadoutNames.splice(loadoutIndex, 1, currentName);
   },
 
   deleteAllNonFavorite() {
