@@ -97,8 +97,8 @@ export default {
     },
     setNextSpawnDistance() {
         // "default distance" = base logic (reduce a bit)
-        // was 300 + speed*20 -> let's do 250 + speed*15
-        const base = 250 + (this.speed * 15);
+        // was 250 + speed*15 -> increase a bit to 350
+        const base = 350 + (this.speed * 15);
         // "default distance*1.3 to default distance*3"
         const min = base * 1.3;
         const max = base * 3;

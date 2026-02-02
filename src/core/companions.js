@@ -125,8 +125,8 @@ export const CompanionEffects = {
     id: "infinities",
     description: "Multiplies Infinities gained",
     format: x => `Multiplies Infinities gained by ${formatX(x, 2, 2)}`,
-    baseValue: 2,
-    perLevel: 0.4,
+    baseValue: 1.5,
+    perLevel: 0.3,
     scaling: "pow",
     cost: 2,
     tier: 2
@@ -135,8 +135,8 @@ export const CompanionEffects = {
     id: "ip",
     description: "Multiplies Infinity Points gained",
     format: x => `Multiplies Infinity Points gained by ${formatX(x, 2, 2)}`,
-    baseValue: 2,
-    perLevel: 0.4,
+    baseValue: 1.5,
+    perLevel: 0.3,
     scaling: "pow",
     cost: 2,
     tier: 2
@@ -156,8 +156,8 @@ export const CompanionEffects = {
     id: "cookie_gain",
     description: "Multiplies Cookie gain",
     format: x => `Multiplies Cookie gain by ${formatX(x, 2, 2)}`,
-    baseValue: 2.0,
-    perLevel: 0.1,
+    baseValue: 1.5,
+    perLevel: 0.075,
     scaling: "pow",
     cost: 1,
     tier: 1
