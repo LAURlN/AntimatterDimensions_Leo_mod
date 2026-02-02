@@ -231,7 +231,7 @@ export const Farm = {
         for (let i = 0; i < player.farm.plots.length; i++) {
             const plot = player.farm.plots[i];
             if (plot && !plot.hasCookie && !plot.isRotted && plot.plantTime > 0) {
-                // Base 5000ms.
+                // Base 10000ms.
                 // Apply Dino Seed Speed effect
                 // Effect value = Percent per Score. (e.g. 1% per score)
                 // Speed Mult = 1 + (Value * Score) / 100
@@ -247,14 +247,14 @@ export const Farm = {
 
                 // Effective Time += diff * speedMult
                 // We stored plantTime. We need to track progress instead of just subtracting dates if speed varies.
-                // Current logic: now - plot.plantTime >= 5000.
+                // Current logic: now - plot.plantTime >= 10000.
                 // If we want variable speed, we must migrate to a progress-based system.
                 // Or simply: update plantTime to be "effective start time"?
                 // Easier: plot.accumulatedTime += diff * speedMult.
 
                 // MIGRATION: We need to change how plot stores progress.
                 // Currently: plantTime.
-                // Let's change to: plot.progress (0 to 5000).
+                // Let's change to: plot.progress (0 to 10000).
 
                 // If plot.progress doesn't exist, init it based on (now - plantTime)
                 if (plot.progress === undefined) {
@@ -263,7 +263,7 @@ export const Farm = {
 
                 plot.progress += diff * speedMult;
 
-                if (plot.progress >= 5000) {
+                if (plot.progress >= 10000) {
                     plot.hasCookie = true;
                     plot.progress = 0; // Reset for next cycle
                     // Trigger reactivity
