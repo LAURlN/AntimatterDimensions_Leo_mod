@@ -41,12 +41,12 @@ export default {
     milestones() {
         return [
             { score: 100, reward: "Unlock Virtual Keyboard" },
-            { score: 200, reward: "Unlock Companion Filter" },
-            { score: 300, reward: "Unlock Parry System (parry by pressing space while holding shift)" }
+            { score: 200, reward: "Unlock Parry System (parry by pressing space while holding shift)" },
+            { score: 300, reward: "Unlock Companion Filter" }
         ];
     },
     canParry() {
-        return (player.companions.minigameHighscore || 0) >= 300;
+        return (player.companions.minigameHighscore || 0) >= 200;
     }
   },
   mounted() {

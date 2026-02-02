@@ -100,7 +100,7 @@ export default {
         return Math.max(0, total - available);
     },
     hasUnlockedFilter() {
-        return (player.companions.minigameHighscore || 0) >= 200;
+        return (player.companions.minigameHighscore || 0) >= 300;
     }
   },
   methods: {
