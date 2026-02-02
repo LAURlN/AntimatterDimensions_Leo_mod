@@ -236,8 +236,10 @@ export class CompanionState {
   }
 
   get levelUpCost() {
-    if (this.level >= 10) return 0;
-    return 10 * Math.pow(2, this.level - 1);
+    if (this.level >= 10) return new Decimal(0);
+    const stars = this._data.stars || 1;
+    const baseCost = new Decimal(10 * Math.pow(stars, 2));
+    return baseCost.times(Decimal.pow(2, this.level - 1));
   }
 
   canLevelUp(cookies) {
