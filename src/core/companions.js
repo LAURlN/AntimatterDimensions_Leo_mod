@@ -61,15 +61,6 @@ export const CompanionUpgrades = {
     costMult: 1,
     formatEffect: lvl => lvl > 0 ? "Unlocked" : "Locked"
   },
-  DINO_SCORE_START: {
-    id: "dino_score_start",
-    name: "Head Start",
-    description: "Start each Dino run at score 100 (and faster speed).",
-    maxLevel: 1,
-    baseCost: 5000,
-    costMult: 1,
-    formatEffect: lvl => lvl > 0 ? "Unlocked" : "Locked"
-  },
   TICKSPEED_SEED_GROWTH: {
     id: "tickspeed_seed_growth",
     name: "Quantum Fertilization",
@@ -235,20 +226,48 @@ export class CompanionState {
     this._data.level = val;
   }
 
+  get maxLevel() {
+    let totalBonus = 0;
+    const counts = {};
+
+    // Count instances of each effect
+    for (const effId of this.effects) {
+      counts[effId] = (counts[effId] || 0) + 1;
+    }
+
+    // Calculate bonus based on Aggregate Effective Tier
+    for (const [id, count] of Object.entries(counts)) {
+      const def = Object.values(CompanionEffects).find(e => e.id === id);
+      if (def) {
+        const baseTier = def.tier || (def.cost || 1);
+        const effectiveTier = baseTier * count;
+
+        // Formula: (EffectiveTier - 1) * 2
+        // Tier 1 -> 0
+        // Tier 2 -> +2
+        // Tier 6 -> +10
+        if (effectiveTier > 1) {
+          totalBonus += (effectiveTier - 1) * 2;
+        }
+      }
+    }
+    return 10 + totalBonus;
+  }
+
   get levelUpCost() {
-    if (this.level >= 10) return new Decimal(0);
+    if (this.level >= this.maxLevel) return new Decimal(0);
     const stars = this._data.stars || 1;
     const baseCost = new Decimal(10 * Math.pow(stars, 2));
     return baseCost.times(Decimal.pow(2, this.level - 1));
   }
 
   canLevelUp(cookies) {
-    if (this.level >= 10) return false;
+    if (this.level >= this.maxLevel) return false;
     return cookies.gte(this.levelUpCost);
   }
 
   levelUp() {
-    if (this.level >= 10) return false;
+    if (this.level >= this.maxLevel) return false;
     this.level++;
     return true;
   }
@@ -297,6 +316,22 @@ export const Companions = {
     return player.companions.loadouts.map(l => l.map(c => c ? new CompanionState(c) : null));
   },
 
+  get availableEffects() {
+    // Basic pool (Cost 1)
+    let availableEffects = ["antimatter", "tickspeed", "buy10", "cookie_gain"];
+
+    // Unlock at 1 Galaxy
+    if (player.companions.records.hasUnlockedFarm) {
+      availableEffects.push("dino_seed_speed");
+    }
+
+    // Post-Crunch pool
+    if (PlayerProgress.infinityUnlocked()) {
+      availableEffects.push("infinities", "ip", "free_galaxy", "purer_summons");
+    }
+    return availableEffects;
+  },
+
   get activeLoadoutName() {
     if (!player.companions.activeLoadoutName) player.companions.activeLoadoutName = "Active Loadout";
     return player.companions.activeLoadoutName;
@@ -328,6 +363,38 @@ export const Companions = {
     // Optimization: Check first element, if old, shift.
     while (this._cookieHistory.length > 0 && this._cookieHistory[0].t < cutoff) {
       this._cookieHistory.shift();
+    }
+
+    // Lazy check on update for discovery (could be optimized)
+    this.checkDiscovered();
+
+    // Auto Summon
+    if (player.companions.autoSummonBasic) {
+      this.fullSend("basic", 1); // Limit to 1 per tick for auto to avoid performance spikes
+    }
+    if (player.companions.autoSummonMighty) {
+      this.fullSend("mighty", 1);
+    }
+  },
+
+  checkDiscovered() {
+    if (!player.companions.records.discoveredEffects) {
+      player.companions.records.discoveredEffects = [];
+    }
+
+    const allCompanions = [
+      ...player.companions.active,
+      ...player.companions.bank,
+      ...player.companions.loadouts.flat()
+    ];
+
+    for (const comp of allCompanions) {
+      if (!comp) continue;
+      for (const effectId of comp.effects) {
+        if (!player.companions.records.discoveredEffects.includes(effectId)) {
+          player.companions.records.discoveredEffects.push(effectId);
+        }
+      }
     }
   },
 
@@ -532,6 +599,11 @@ export const Companions = {
     }
 
     const newComp = this.generateCompanion(stars);
+
+    // Auto Filter Check
+    if (this.shouldDelete(newComp) && player.companions.filter && player.companions.filter.auto) {
+      return { filtered: true };
+    }
     // console.log("Generated Companion:", newComp);
 
     // Add to bank
@@ -589,6 +661,11 @@ export const Companions = {
 
     const newComp = this.generateCompanion(stars);
 
+    // Auto Filter Check
+    if (this.shouldDelete(newComp) && player.companions.filter && player.companions.filter.auto) {
+      return { filtered: true };
+    }
+
     // Add to bank
     let added = false;
     for (let i = 0; i < player.companions.bank.length; i++) {
@@ -605,6 +682,19 @@ export const Companions = {
     }
 
     return new CompanionState(newComp);
+  },
+
+  fullSend(tier, limit = 50) {
+    let count = 0;
+    while (count < limit) {
+      const res = tier === "mighty" ? this.summonMighty() : this.summon(tier);
+      if (typeof res === "string" || !res || res.filtered === undefined && !(res instanceof CompanionState)) {
+        // Error or bank full or can't afford
+        break;
+      }
+      count++;
+    }
+    return count;
   },
 
   delete(location, index) {
@@ -657,19 +747,91 @@ export const Companions = {
     return `${adj} ${noun}`;
   },
 
+  // Filter Logic
+  matchesFilter(companion) {
+    if (!player.companions.filter) return false;
+    const f = player.companions.filter;
+
+    const hasStars = f.stars && f.stars.length > 0;
+    const hasEffects = f.effects && f.effects.length > 0;
+    const hasTiers = f.tiers && f.tiers.length > 0;
+
+    if (!hasStars && !hasEffects && !hasTiers) return false; // Empty filter matches nothing
+
+    // Check Criteria
+    let matchStars = false;
+    if (hasStars) {
+      matchStars = f.stars.includes(companion.stars);
+    }
+
+    let matchEffects = false;
+    if (hasEffects) {
+      matchEffects = companion.effects.some(effId => f.effects.includes(effId));
+    }
+
+    let matchTiers = false;
+    if (hasTiers) {
+      matchTiers = companion.effects.some(effId => {
+        const def = Object.values(CompanionEffects).find(e => e.id === effId);
+        if (!def) return false;
+        const tier = def.tier || (def.cost || 1);
+        // Handle "6+" Logic if needed, but for now assuming direct values.
+        // If user selects "6", they mean 6 or higher? Or just 6?
+        // Let's assume direct match for 1-5, and maybe 6 handles 6+ if we map it that way.
+        // For now simpler: direct match.
+        return f.tiers.includes(tier);
+      });
+    }
+
+    if (f.logic === 'all') {
+      // Only check enabled categories
+      if (hasStars && !matchStars) return false;
+      if (hasEffects && !matchEffects) return false;
+      if (hasTiers && !matchTiers) return false;
+      return true;
+    } else {
+      // Any
+      if (hasStars && matchStars) return true;
+      if (hasEffects && matchEffects) return true;
+      if (hasTiers && matchTiers) return true;
+      return false;
+    }
+  },
+
+  shouldDelete(companion) {
+    if (!player.companions.filter) return false;
+    const f = player.companions.filter;
+
+    // Special safety: Never delete favorites (though new summons aren't favorites yet)
+    if (companion.isFavorite) return false;
+
+    const matches = this.matchesFilter(companion);
+
+    if (f.mode === 'blacklist') {
+      return matches;
+    } else {
+      // Whitelist: Delete if it DOES NOT match
+      return !matches;
+    }
+  },
+
+  deleteByFilter() {
+    let count = 0;
+    const banks = player.companions.bank;
+
+    for (let i = 0; i < banks.length; i++) {
+      const comp = banks[i];
+      if (comp && this.shouldDelete(comp)) {
+        banks.splice(i, 1, null);
+        count++;
+      }
+    }
+    return count;
+  },
+
   generateCompanion(stars) {
     // Basic pool (Cost 1)
-    let availableEffects = ["antimatter", "tickspeed", "buy10", "cookie_gain"];
-
-    // Unlock at 1 Galaxy
-    if (player.companions.records.hasUnlockedFarm) {
-      availableEffects.push("dino_seed_speed");
-    }
-
-    // Post-Crunch pool
-    if (PlayerProgress.infinityUnlocked()) {
-      availableEffects.push("infinities", "ip", "free_galaxy", "purer_summons");
-    }
+    const availableEffects = this.availableEffects;
 
     const effects = [];
     let points = stars;
@@ -692,14 +854,16 @@ export const Companions = {
       points -= (def.cost || 1);
     }
 
-    return {
+    const companion = {
       stars: stars,
       effects: effects,
-      uuid: Math.floor(Math.random() * 1e9),
-      name: this.generateName(),
+      level: 1,
       isFavorite: false,
-      level: 1
+      uuid: Math.floor(Math.random() * 1e9),
+      name: this.generateName()
     };
+
+    return companion;
   }
 };
 

@@ -7,7 +7,9 @@ export default {
     return {
       isPlaying: false,
       score: 0,
+      score: 0,
       highscore: 0,
+      maxCombo: 0,
       gameOver: false,
       playerY: 0,
       playerVelocity: 0,
@@ -25,12 +27,31 @@ export default {
       cookies: new Decimal(0),
       lastMinuteGains: new Decimal(0),
       cheatKeys: { l: false, e: false, o: false },
+      // Parry System
+      parryTime: 0,
+      deathTime: 0,
+      combo: 0,
+      visualEffects: [], // { id, x, y, text, life }
     };
   },
   computed: {
     formatCookies() {
       return format(this.cookies, 2);
+    },
+    milestones() {
+        return [
+            { score: 100, reward: "Unlock Virtual Keyboard" },
+            { score: 200, reward: "Unlock Companion Filter" },
+            { score: 300, reward: "Unlock Parry System (parry by pressing space while holding shift)" }
+        ];
+    },
+    canParry() {
+        return (player.companions.minigameHighscore || 0) >= 300;
     }
+  },
+  mounted() {
+    window.addEventListener('keydown', this.handleInput);
+    window.addEventListener('keyup', this.handleKeyUp);
   },
   methods: {
     update() {
@@ -40,6 +61,7 @@ export default {
           player.companions.minigameHighscore = 0;
       }
       this.highscore = player.companions.minigameHighscore;
+      this.maxCombo = player.companions.minigameMaxCombo || 0;
 
       if (Companions && Companions.cookiesGainedLastMinute) {
           this.lastMinuteGains.copyFrom(Companions.cookiesGainedLastMinute);
@@ -52,28 +74,26 @@ export default {
     },
     startGame() {
       if (this.isPlaying) return;
+      if (this.gameOver && this.deathTime < 30) return;
       this.isPlaying = true;
       this.gameOver = false;
-      const hasHeadStart = Companions.upgradeLevel("dino_score_start") > 0;
-      this.score = hasHeadStart ? 100 : 0;
-      this.speed = hasHeadStart ? (6 + 100 / 6) : 6;
-      
-      // Auto-unlock if starting with headstart
-      if (this.score >= 100 && !player.companions.records.hasUnlockedKeyboard) {
-          player.companions.records.hasUnlockedKeyboard = true;
-          // Don't notify here to avoid spamming at start, but ensure flag is set
-      }
+      this.deathTime = 0;
+      this.score = 0;
+      this.speed = 6;
       this.playerY = 0;
       this.playerVelocity = 0;
       this.obstacles = [];
       this.isDucking = false;
       this.jumpCount = 0;
       this.nextSpawnDistance = 0;
+       this.jumpCount = 0;
+       this.nextSpawnDistance = 0;
+       this.parryTime = 0;
+       this.combo = 0;
+       this.combo = 0;
       this.lastTime = performance.now();
       
       this.gameLoopId = requestAnimationFrame(this.gameLoop);
-      window.addEventListener('keydown', this.handleInput);
-      window.addEventListener('keyup', this.handleKeyUp);
     },
     setNextSpawnDistance() {
         // "default distance" = base logic (reduce a bit)
@@ -115,7 +135,7 @@ export default {
         }
 
         const newObs = {
-          x: 1200, // Spawn at new right edge
+          x: 900, // Spawn at new right edge
           w: (type === 'bird' || type === 'fat_bird') ? 40 : (20 + Math.random() * 30),
           h: 30 + Math.random() * 20, // Base height
           type: type,
@@ -145,6 +165,14 @@ export default {
       if (e.key === 'Shift') {
           this.isDucking = true;
       }
+      // Check for Parry (Shift + Space)
+      // Note: handleJump checks Space/ArrowUp. 
+      // Parry specifically needs SPACE while holding SHIFT?
+      // "parry by pressing space while holding shift"
+      if (e.code === 'Space' && this.isDucking && this.canParry) {
+          this.triggerParry();
+      }
+      
       this.handleJump(e);
       this.handleCheat(e, true);
     },
@@ -179,12 +207,21 @@ export default {
         GameUI.notify.info(`Dev Cheat: +${format(amount, 2, 0)} Cookies!`);
         Currency.cookies.add(amount);
         
-        // Reset keys to prevent infinite rapid fire (optional, but good UX)
         // this.cheatKeys.l = false; 
+    },
+    triggerParry() {
+        // 60ms window (60 / 16.66 = 3.6)
+        this.parryTime = 3.6;
     },
     handleJump(e) {
       if ((e.code === 'Space' || e.code === 'ArrowUp')) {
           e.preventDefault();
+          
+          if (this.gameOver) {
+              if (this.deathTime >= 30) this.startGame();
+              return;
+          }
+
           // Ground Jump
           if (this.playerY === 0 && !this.isDucking) {
              this.playerVelocity = this.jumpStrength;
@@ -203,10 +240,31 @@ export default {
       }
     },
     gameLoop(confirmTime) {
-      if (!this.isPlaying) return;
+      if (!this.isPlaying && !this.gameOver) return;
 
       const deltaTime = (confirmTime - this.lastTime) / 16.66; // Normalize to ~60fps
       this.lastTime = confirmTime;
+
+      if (this.gameOver) {
+          if (this.deathTime < 30) {
+              this.deathTime += deltaTime;
+              this.gameLoopId = requestAnimationFrame(this.gameLoop);
+          }
+          return;
+      }
+
+      // Parry Logic
+      if (this.parryTime > 0) {
+          this.parryTime -= deltaTime;
+      }
+
+      // Update Visual Effects
+      for (let i = this.visualEffects.length - 1; i >= 0; i--) {
+          this.visualEffects[i].life--;
+          if (this.visualEffects[i].life <= 0) {
+              this.visualEffects.splice(i, 1);
+          }
+      }
 
       // Update Player
       let currentGravity = this.gravity;
@@ -235,7 +293,7 @@ export default {
       } else {
           const lastObs = this.obstacles[this.obstacles.length - 1];
           // Determine gap from right edge of last obstacle
-          const currentGap = 1200 - (lastObs.x + lastObs.w);
+          const currentGap = 900 - (lastObs.x + lastObs.w);
           
           if (currentGap > this.nextSpawnDistance) {
               this.spawnObstacle();
@@ -268,6 +326,45 @@ export default {
         // Collision if:
         // 1. Horizontal Overlap
         if (obs.x < playerX + playerWidth && obs.x + obs.w > playerX) {
+          
+            // Parry Override
+            if (this.parryTime > 0) {
+                // Destroy!
+                this.obstacles.splice(i, 1);
+                // Sequence: 1, 2, 4, 7, 11...
+                // Formula: 1 + (n * (n + 1)) / 2
+                const n = this.combo;
+                const scoreGain = 1 + (n * (n + 1)) / 2;
+                
+                this.score += scoreGain;
+                this.combo++;
+                
+                // Update Max Combo
+                if (this.combo > (player.companions.minigameMaxCombo || 0)) {
+                    player.companions.minigameMaxCombo = this.combo;
+                }
+                
+                // Visual Effect
+                this.visualEffects.push({
+                    id: Date.now() + Math.random(),
+                    x: obs.x,
+                    y: obs.yOffset || 20,
+                    text: `PARRY! +${scoreGain}`,
+                    life: 60
+                });
+                
+                // Explosion
+                this.visualEffects.push({
+                    id: Date.now() + Math.random() + 1,
+                    x: obs.x + obs.w / 2,
+                    y: (obs.yOffset || 0) + obs.h / 2,
+                    type: 'explosion',
+                    life: 30
+                });
+                
+                continue; // Next obstacle
+            }
+
           // 2. Vertical Overlap
           // Player Range: [pY, pY + pHeight]
           // Obs Range: [obsY, obsY + obs.h]
@@ -282,6 +379,9 @@ export default {
         if (obs.x + obs.w < playerX && !obs.passed) {
           this.score += 1;
           obs.passed = true;
+          this.combo = 0; // Reset combo on normal dodge (pass without parry)
+          
+          // "speed increases 10x faster as well"
           // "speed increases 10x faster as well"
           // "stop the speed scaling at 250 score"
           if (this.score < 150) {
@@ -308,10 +408,9 @@ export default {
     endGame() {
       this.isPlaying = false;
       this.gameOver = true;
-      this.gameOver = true;
-      cancelAnimationFrame(this.gameLoopId);
-      window.removeEventListener('keydown', this.handleInput);
-      window.removeEventListener('keyup', this.handleKeyUp);
+      this.deathTime = 0;
+      // Start the death counter loop
+      this.gameLoopId = requestAnimationFrame(this.gameLoop);
       
       // Reward
       const reward = Math.floor(this.score / 10);
@@ -338,7 +437,6 @@ export default {
   },
   beforeDestroy() {
     cancelAnimationFrame(this.gameLoopId);
-    cancelAnimationFrame(this.gameLoopId);
     window.removeEventListener('keydown', this.handleInput);
     window.removeEventListener('keyup', this.handleKeyUp);
   }
@@ -346,13 +444,15 @@ export default {
 </script>
 
 <template>
-  <div class="l-minigame-tab">
+  <div class="l-minigame-layout">
+    <div class="l-minigame-main-column">
       <div class="c-cookies-display">
       <div>You have <span class="c-cookies-amount">{{ formatCookies }}</span> Cookies</div>
       <div class="c-cookies-rate">
         (+{{ format(lastMinuteGains, 2, 0) }} last minute)
       </div>
       <div class="c-highscore">Highscore: {{ highscore }}</div>
+      <div v-if="maxCombo >= 1" class="c-highscore">Max Combo: {{ maxCombo }}</div>
     </div>
 
     <div class="c-game-container" @click="mobileJump">
@@ -366,12 +466,22 @@ export default {
         <h3>Game Over</h3>
         <p>Score: {{ score }}</p>
         <p>Cookies Earned: {{ Math.floor(score / 10) }}</p>
-        <button class="o-primary-btn" @click="startGame">Try Again</button>
+        <button 
+          class="o-primary-btn" 
+          :class="{ 'o-primary-btn--disabled': deathTime < 30 }"
+          @click="startGame"
+          :disabled="deathTime < 30"
+        >
+          {{ deathTime < 30 ? "Wait..." : "Try Again" }}
+        </button>
       </div>
 
       <div 
         class="c-dino-player"
-        :class="{ 'c-dino-player--ducking': isDucking }"
+        :class="{ 
+            'c-dino-player--ducking': isDucking,
+            'c-dino-player--parry': parryTime > 0
+        }"
         :style="{ transform: `translateY(${playerY}px)` }"
       ></div>
 
@@ -394,17 +504,114 @@ export default {
       
       <!-- Score -->
       <div class="c-score-display" v-if="isPlaying">Score: {{ score }}</div>
+      
+      <!-- Combo & Effects -->
+      <div class="c-combo-display" v-if="combo > 1">COMBO x{{ combo }}</div>
+      
+      <div 
+        v-for="eff in visualEffects" 
+        :key="eff.id" 
+        class="c-visual-effect"
+        :class="{ 'c-visual-effect--explosion': eff.type === 'explosion' }"
+        :style="{ left: `${eff.x}px`, bottom: `${eff.y + 40}px` }"
+      >
+          {{ eff.text }}
+      </div>
     </div>
+  </div>
+
+  <div class="c-milestones-sidebar">
+      <h3 class="c-sidebar-header">Milestones</h3>
+      <div 
+        v-for="(milestone, i) in milestones" 
+        :key="i" 
+        class="c-milestone-item"
+        :class="{ 'c-milestone-item--unlocked': highscore >= milestone.score }"
+      >
+          <div class="c-milestone-header">
+              <span class="c-milestone-score">Score {{ milestone.score }}</span>
+              <span class="c-milestone-status">
+                  {{ highscore >= milestone.score ? "✔" : "🔒" }}
+              </span>
+          </div>
+          <div class="c-milestone-reward">
+              {{ highscore >= milestone.score ? milestone.reward : "???" }}
+          </div>
+      </div>
+  </div>
   </div>
 </template>
 
 <style scoped>
-.l-minigame-tab {
+.l-minigame-layout {
+  display: flex;
+  width: 100%;
+}
+
+.l-minigame-main-column {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 2rem;
   color: var(--color-text);
+  overflow-y: auto;
+}
+
+.c-milestones-sidebar {
+    width: 300px;
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 1px solid var(--color-accent);
+    padding: 1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.c-sidebar-header {
+    text-align: center;
+    color: var(--color-text);
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.c-milestone-item {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    opacity: 0.7;
+    transition: all 0.3s;
+}
+
+.c-milestone-item--unlocked {
+    opacity: 1;
+    border-color: #ffd700;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+}
+
+.c-milestone-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 0.95rem;
+}
+
+.c-milestone-score {
+    color: var(--color-accent);
+}
+
+.c-milestone-reward {
+    font-size: 0.85rem;
+    color: white;
+    font-style: italic;
 }
 
 .c-cookies-display {
@@ -431,7 +638,7 @@ export default {
 }
 
 .c-game-container {
-  width: 1200px;
+  width: 900px;
   height: 300px;
   background-color: #222; /* Dark Mode */
   position: relative;
@@ -469,6 +676,11 @@ export default {
 .c-dino-player--ducking {
     height: 20px;
     background-color: #ccc;
+}
+
+.c-dino-player--parry {
+    background-color: #00ffff !important; /* Cyan Glow */
+    box-shadow: 0 0 10px #00ffff;
 }
 
 .c-obstacle {
@@ -509,5 +721,58 @@ export default {
 
 .o-primary-btn {
   margin-top: 1rem;
+}
+
+.c-combo-display {
+    position: absolute;
+    top: 50px;
+    width: 100%;
+    text-align: center;
+    font-size: 3rem;
+    font-weight: 900;
+    color: #00ffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.8), 2px 2px 0px black;
+    pointer-events: none;
+    animation: pulse 0.2s ease-out;
+}
+
+.c-visual-effect {
+    position: absolute;
+    color: white;
+    font-weight: bold;
+    font-size: 1.5rem;
+    text-shadow: 0 0 5px cyan, 1px 1px 0 black;
+    pointer-events: none;
+    animation: floatUp 1s forwards;
+    z-index: 20;
+}
+
+@keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-50px) scale(1.5); opacity: 0; }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.c-visual-effect--explosion {
+    width: 60px;
+    height: 60px;
+    text-indent: -9999px;
+    background: radial-gradient(circle, cyan, white);
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    animation: explode 0.4s ease-out forwards;
+    transform-origin: center;
+    box-shadow: 0 0 20px cyan;
+    z-index: 25;
+}
+
+@keyframes explode {
+    0% { transform: translate(-50%, 50%) scale(0.2); opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { transform: translate(-50%, 50%) scale(2.0); opacity: 0; }
 }
 </style>

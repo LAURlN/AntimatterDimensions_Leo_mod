@@ -216,10 +216,22 @@ window.player = {
       hasUnlockedTab: false,
       hasUnlockedTier2: false,
       hasUnlockedFarm: false,
-      hasUnlockedKeyboard: false
+      hasUnlockedKeyboard: false,
+      discoveredEffects: []
+    },
+    filter: {
+      mode: 'blacklist', // 'blacklist' or 'whitelist'
+      logic: 'any',      // 'any' or 'all'
+      auto: false,
+      stars: [],   // Array of selected star counts (1-5)
+      effects: [], // Array of selected effect IDs
+      tiers: []    // Array of selected tier numbers
     },
     minigameScore: 0,
     minigameHighscore: 0,
+    minigameMaxCombo: 0,
+    autoSummonBasic: false,
+    autoSummonMighty: false,
     virtualKeypad: {
       heldKeys: []
     }

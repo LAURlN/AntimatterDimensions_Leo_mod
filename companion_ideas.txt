@@ -4,7 +4,20 @@ theoretical
 
 to be implemented now (when removing something from here, make sure to add it below, unless it is just a minor bug fix)
 {
-
+    companion filters: adds a block field under companion effect list on the right to setup filters.
+    the filter can be set to whitelist or blacklist.
+    the filter can be set to any or all
+    there are lists for star numbers, effects and tiers, where each value can be selected or unselected.
+    there is a button to delete manually.
+    the filter can be set to automatic or manual. 
+    when set to manual blacklist all for example, the delete button
+    the button deletes every companion that fits all the filter criteria. 
+    when it is set to automatic blacklist all, it does the same, but it does it immediately when summoning.
+    automatic only applies to newly summoned companions.
+    when it is set to whitelist all, it deletes every companion that does not fulfill all the filter criteria.
+    when set to automatic whitelist any, it automaticially deletes every companion that does not fulfill any of the filter criteria.
+    when for example, 4 star and 5 star are selected on the star count list, every 4 or 5 star companion counts as passing this criteria.
+    the same logic applies to all other cases
 }   
 
 already implemented (after implementing something, move it here)
@@ -70,13 +83,19 @@ already implemented (after implementing something, move it here)
     - start each run at score 100 in dino game (make sure it starts at the right speed as well) (cost 5000 cookies)
     - tickspeed upgrades have a highly reduced effect on seed growth (0.1% faster per upgrade [multiplicative]) (cost 100k cookies)
     - galaxies increase cookie gain by 50% each (cost 1m cookies)
+
+    when reaching a highscore of 100+ in the dino game, a secret subtab should be unlocked.
+    this subtab shows a keyboard where every button can be pressed by clicking it. when clicking
+    when a button on this keyboard is clicked, it is displayed as held down until it is clicked again. if a button is
+    displayed as held down, it treats it as if that key is pressed for hotkeys and stuff. make sure this applies 
+    even when the game is not in focus. also above the keyboard it should have a button to press to view the hotleys
+    (thuis page already exists and can be accessed from the settings, you just have to link it)
+
 }
 
 Ideas for the future (do not implement yet): 
 {
-    
-    
-
-
-    
+    parry system
+    full send summons
+    auto summons
 }

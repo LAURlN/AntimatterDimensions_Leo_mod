@@ -16,13 +16,26 @@ export default {
       bankSlots: [],
       loadoutSlots: [],
       loadoutNames: [],
+      discoveredEffects: [],
       bankSlots: [],
       // Multi-select support
       selectedSlots: [], // Array of { location, index }
       selectedCompanion: null,
       cookies: new Decimal(0),
       isDeleting: false,
+      isDeleting: false,
       isBulkDeleting: false,
+      filter: {
+          mode: 'blacklist',
+          logic: 'any',
+          auto: false,
+          stars: [],
+          effects: [],
+          tiers: []
+      },
+      autoSummonBasic: false,
+      autoSummonMighty: false,
+      // Parry System
     };
   },
   computed: {
@@ -44,6 +57,50 @@ export default {
           };
         })
         .filter(eff => eff.isActive);
+    },
+    sortedAvailableEffects() {
+        const pool = Companions.availableEffects;
+        return pool.map(id => {
+            const def = Object.values(CompanionEffects).find(e => e.id === id);
+            const isDiscovered = this.discoveredEffects.includes(id);
+            const tier = def.tier || (def.cost || 1);
+            
+            // Generate dynamic description
+            let description = "Summon to discover!";
+            if (isDiscovered) {
+                // Calculate base value (Star 1, Level 1)
+                const baseVal = def.baseValue; // Raw base
+                // Format plain value
+                const fmtVal = def.format(baseVal);
+                
+                // Add scaling info
+                let scalingText = "";
+                if (def.perLevel) {
+                    const sign = def.perLevel >= 0 ? "+" : "";
+                    scalingText = ` (${sign}${format(def.perLevel, 2, 2)}/lvl)`;
+                }
+                
+                description = fmtVal + scalingText;
+            }
+            
+            return {
+                id: id,
+                def: def,
+                tier: tier,
+                color: this.getTierColor(tier),
+                name: isDiscovered ? (def.name || idToName(id)) : "???",
+                description: description,
+                isDiscovered: isDiscovered
+            };
+        }).sort((a, b) => a.tier - b.tier || a.id.localeCompare(b.id));
+    },
+    lockedEffectsCount() {
+        const total = Object.keys(CompanionEffects).length;
+        const available = Companions.availableEffects.length;
+        return Math.max(0, total - available);
+    },
+    hasUnlockedFilter() {
+        return (player.companions.minigameHighscore || 0) >= 200;
     }
   },
   methods: {
@@ -59,12 +116,29 @@ export default {
       this.bankSlots = Companions.bank;
       this.loadoutSlots = Companions.loadouts;
       this.loadoutNames = player.companions.loadoutNames;
+      this.discoveredEffects = player.companions.records.discoveredEffects || [];
       this.cookies.copyFrom(player.cookies);
+      
+      if (player.companions.filter) {
+          // Sync filter UI state
+          const f = player.companions.filter;
+          this.filter.mode = f.mode;
+          this.filter.logic = f.logic;
+          this.filter.auto = f.auto;
+          this.filter.stars = f.stars || [];
+          this.filter.effects = f.effects || [];
+          this.filter.tiers = f.tiers || [];
+      }
+      
+      this.autoSummonBasic = player.companions.autoSummonBasic;
+      this.autoSummonMighty = player.companions.autoSummonMighty;
     },
     summonBasic() {
       const result = Companions.summon("basic");
       if (typeof result === "string") {
         GameUI.notify.error(result);
+      } else if (result && result.filtered) {
+        GameUI.notify.info("Summoned Companion (Auto-Filtered)");
       } else if (result) {
         GameUI.notify.success("Summoned a Companion!");
       } else {
@@ -75,11 +149,29 @@ export default {
       const result = Companions.summonMighty();
       if (typeof result === "string") {
         GameUI.notify.error(result);
+      } else if (result && result.filtered) {
+        GameUI.notify.info("Summoned Mighty Companion (Auto-Filtered)");
       } else if (result) {
         GameUI.notify.success("Summoned a Mighty Companion!");
       } else {
         GameUI.notify.error("Not enough cookies!");
       }
+    },
+    fullSendBasic() {
+        const count = Companions.fullSend("basic");
+        if (count > 0) GameUI.notify.success(`Full Sent! Summoned ${count} companions.`);
+        else GameUI.notify.info("Bank full or not enough cookies!");
+    },
+    fullSendMighty() {
+        const count = Companions.fullSend("mighty");
+        if (count > 0) GameUI.notify.success(`Full Sent! Summoned ${count} mighty companions.`);
+        else GameUI.notify.info("Bank full or not enough cookies!");
+    },
+    toggleAutoBasic() {
+        player.companions.autoSummonBasic = !player.companions.autoSummonBasic;
+    },
+    toggleAutoMighty() {
+        player.companions.autoSummonMighty = !player.companions.autoSummonMighty;
     },
     handleSlotClick(location, index, event) {
       // Toggle selection if Ctrl is held
@@ -382,32 +474,96 @@ export default {
     handleActiveLoadoutNameChange(event) {
         Companions.activeLoadoutName = event.target.value;
         this.activeLoadoutName = event.target.value;
+    },
+    toggleFilterMode() {
+        if (!player.companions.filter) return;
+        player.companions.filter.mode = player.companions.filter.mode === 'blacklist' ? 'whitelist' : 'blacklist';
+    },
+    toggleFilterLogic() {
+        if (!player.companions.filter) return;
+        player.companions.filter.logic = player.companions.filter.logic === 'any' ? 'all' : 'any';
+    },
+    toggleAutoFilter() {
+        if (!player.companions.filter) return;
+        player.companions.filter.auto = !player.companions.filter.auto;
+    },
+    toggleFilterList(type, value) {
+        if (!player.companions.filter) return;
+        const list = player.companions.filter[type];
+        const idx = list.indexOf(value);
+        if (idx !== -1) {
+            list.splice(idx, 1);
+        } else {
+            list.push(value);
+        }
+    },
+    isFilterSelected(type, value) {
+        if (!this.filter[type]) return false;
+        return this.filter[type].includes(value);
+    },
+    deleteMatches() {
+        const count = Companions.deleteByFilter();
+        GameUI.notify.success(`Filter deleted ${count} companions`);
+        // Refresh selection
+        this.selectedSlots = [];
+        this.selectedCompanion = null;
     }
   }
 };
+
+function idToName(id) {
+    // Basic prettify if name missing
+    return id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
 </script>
 
 <template>
-  <div class="l-companions-tab" @click="handleBackgroundClick">
+  <div class="l-companions-layout" @click="handleBackgroundClick">
+    <div class="l-companions-main-column">
     <div class="c-summon-area">
       <div class="c-cookies-display">
         Current Cookies: <span class="c-cookies-amount">{{ formatCookies }}</span>
       </div>
       <div class="c-summon-controls">
-        <PrimaryButton 
-            class="o-primary-btn--subtab-option"
-            @click="summonBasic"
-            :enabled="cookies.gte(10)"
-        >
-            Summon Basic (10 Cookies)
-        </PrimaryButton>
-        <PrimaryButton 
-            class="o-primary-btn--subtab-option c-summon-btn--mighty"
-            @click="summonMighty"
-            :enabled="cookies.gte(10000)"
-        >
-            Summon Mighty (10k Cookies)
-        </PrimaryButton>
+        <div class="c-summon-group">
+          <PrimaryButton 
+              class="o-primary-btn--subtab-option"
+              @click="summonBasic"
+              :enabled="cookies.gte(10)"
+          >
+              Summon Basic (10 Cookies)
+          </PrimaryButton>
+          <div class="c-summon-adv-buttons">
+            <button class="o-primary-btn--subtab-option c-adv-btn" @click="fullSendBasic" :disabled="cookies.lt(10)">Full Send</button>
+            <button 
+              class="o-primary-btn--subtab-option c-adv-btn" 
+              :class="{ 'c-adv-btn--active': autoSummonBasic }" 
+              @click="toggleAutoBasic"
+            >
+              Auto: {{ autoSummonBasic ? "ON" : "OFF" }}
+            </button>
+          </div>
+        </div>
+
+        <div class="c-summon-group">
+          <PrimaryButton 
+              class="o-primary-btn--subtab-option c-summon-btn--mighty"
+              @click="summonMighty"
+              :enabled="cookies.gte(10000)"
+          >
+              Summon Mighty (10k Cookies)
+          </PrimaryButton>
+          <div class="c-summon-adv-buttons">
+            <button class="o-primary-btn--subtab-option c-adv-btn c-adv-btn--mighty" @click="fullSendMighty" :disabled="cookies.lt(10000)">Full Send</button>
+            <button 
+              class="o-primary-btn--subtab-option c-adv-btn c-adv-btn--mighty" 
+              :class="{ 'c-adv-btn--active': autoSummonMighty }" 
+              @click="toggleAutoMighty"
+            >
+              Auto: {{ autoSummonMighty ? "ON" : "OFF" }}
+            </button>
+          </div>
+        </div>
       </div>
       <div class="c-selected-companion-container">
 
@@ -436,22 +592,19 @@ export default {
                       placeholder="Rename Companion"
                   />
                   <div class="c-selected-effects" v-html="getCompanionTooltip(selectedCompanion)"></div>
-                  
                   <div class="c-selected-actions">
                       <button class="o-primary-btn--subtab-option" @click="toggleFavorite">
                           {{ hasFavorite(selectedCompanion) ? "Unfavorite" : "Mark as Favorite" }}
                       </button>
-                      
-                      {{ hasFavorite(selectedCompanion) ? "Unfavorite" : "Mark as Favorite" }}
-                      </button>
 
                       <PrimaryButton 
-                        v-if="selectedCompanion.level < 10"
+                        v-if="selectedCompanion.level < selectedCompanion.maxLevel"
                         class="o-primary-btn--subtab-option"
                         :enabled="cookies.gte(selectedCompanion.levelUpCost)"
                         @click="levelUpSelected"
                       >
-                        Level Up ({{ format(selectedCompanion.levelUpCost, 2, 0) }} Cookies)
+                        <span style="display: block; font-size: 1.1em;">Level Up</span>
+                        <span style="display: block; font-size: 0.8em; opacity: 0.8;">({{ format(selectedCompanion.levelUpCost, 2, 0) }} Cookies)</span>
                       </PrimaryButton>
                       <PrimaryButton 
                         v-else
@@ -613,17 +766,156 @@ export default {
       </div>
     </div>
   </div>
+
+  <div class="c-available-effects-sidebar">
+      <h3 class="c-sidebar-header">Available Effects</h3>
+      <div v-if="sortedAvailableEffects.length === 0" class="c-effect-list-empty">
+          No effects available yet. Unlock more mechanics!
+      </div>
+      <div 
+        v-for="effect in sortedAvailableEffects" 
+        :key="effect.id" 
+        class="c-effect-list-item"
+        :style="{ borderColor: effect.color }"
+      >
+          <div class="c-effect-header" :style="{ color: effect.color }">
+              <span class="c-effect-name">{{ effect.name }}</span>
+              <span class="c-effect-tier">Tier {{ effect.tier }}</span>
+          </div>
+          <div class="c-effect-desc">
+              {{ effect.description }}
+          </div>
+      </div>
+      
+      <div v-if="lockedEffectsCount > 0" class="c-locked-effects-footer">
+          + {{ lockedEffectsCount }} Locked Effect{{ lockedEffectsCount === 1 ? '' : 's' }}
+      </div>
+
+      <div v-if="hasUnlockedFilter" class="c-filter-separator"></div>
+      <div v-if="hasUnlockedFilter" class="c-filter-panel">
+          <h3 class="c-sidebar-header">Filter System</h3>
+          <div class="c-filter-row">
+              <button class="c-filter-btn" :class="{active: filter.mode === 'blacklist'}" @click="toggleFilterMode">
+                  {{ filter.mode === 'blacklist' ? 'Blacklist' : 'Whitelist' }}
+              </button>
+              <button class="c-filter-btn" :class="{active: filter.logic === 'all'}" @click="toggleFilterLogic">
+                  {{ filter.logic === 'any' ? 'Match ANY' : 'Match ALL' }}
+              </button>
+          </div>
+          <button class="c-filter-btn c-filter-btn--auto" :class="{active: filter.auto}" @click="toggleAutoFilter">
+              Auto-Delete: {{ filter.auto ? 'ON' : 'OFF' }}
+          </button>
+          
+          <div class="c-filter-group">
+              <div class="c-filter-label">Stars</div>
+              <div class="c-filter-chip-container">
+                  <span v-for="s in 5" :key="s" class="c-filter-chip" :class="{selected: isFilterSelected('stars', s)}" @click="toggleFilterList('stars', s)">{{s}}★</span>
+              </div>
+          </div>
+          <div class="c-filter-group">
+              <div class="c-filter-label">Tiers</div>
+               <div class="c-filter-chip-container">
+                  <span v-for="t in 6" :key="t" class="c-filter-chip" :class="{selected: isFilterSelected('tiers', t)}" @click="toggleFilterList('tiers', t)">T{{t}}{{t===6?'+':''}}</span>
+              </div>
+          </div>
+          <div class="c-filter-group">
+              <div class="c-filter-label">Effects</div>
+              <div class="c-filter-chip-container c-filter-chip-container--effects">
+                  <span v-for="eff in sortedAvailableEffects" :key="'f-'+eff.id" class="c-filter-chip" :class="{selected: isFilterSelected('effects', eff.id)}" @click="toggleFilterList('effects', eff.id)" :style="{color: eff.color, borderColor: eff.color}">
+                      {{ eff.name }}
+                  </span>
+              </div>
+          </div>
+
+          <button class="o-primary-btn--delete" @click="deleteMatches" style="margin-top: 1rem;">
+              Delete Matches (Manual)
+          </button>
+      </div>
+  </div>
+  </div>
 </template>
 
 <style scoped>
-.l-companions-tab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  color: var(--color-text);
-  padding: 2rem;
-  width: 100%;
-  overflow-y: auto;
+.l-companions-layout {
+    display: flex;
+    width: 100%;
+}
+
+.l-companions-main-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.c-available-effects-sidebar {
+    width: 320px;
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 1px solid var(--color-accent);
+    padding: 1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    flex-shrink: 0;
+}
+
+.c-sidebar-header {
+    text-align: center;
+    color: var(--color-text);
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.c-effect-list-item {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid; /* Color driven by style binding */
+    border-radius: 4px;
+    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    transition: transform 0.2s;
+}
+
+.c-effect-list-item:hover {
+    transform: translateX(-2px);
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.c-effect-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 0.95rem;
+    text-transform: capitalize;
+}
+
+.c-effect-tier {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.c-effect-desc {
+    font-size: 0.85rem;
+    color: var(--color-text);
+    opacity: 0.9;
+    line-height: 1.3;
+}
+
+.c-locked-effects-footer {
+    margin-top: auto;
+    text-align: center;
+    padding: 1rem;
+    font-weight: bold;
+    color: var(--color-text);
+    opacity: 0.5;
+    border-top: 1px dashed var(--color-accent);
+    font-style: italic;
 }
 
 .c-summon-area {
@@ -686,11 +978,94 @@ export default {
   text-align: left;
 }
 
+/* Filter Styles */
+.c-filter-separator {
+    height: 1px;
+    background: var(--color-accent);
+    margin: 1rem 0;
+    width: 100%;
+}
+.c-filter-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.c-filter-row {
+    display: flex;
+    gap: 0.5rem;
+}
+.c-filter-btn {
+    flex: 1;
+    background: #333;
+    border: 1px solid #555;
+    color: #888;
+    padding: 0.3rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.c-filter-btn.active {
+    background: var(--color-accent);
+    color: black;
+    font-weight: bold;
+    border-color: var(--color-accent);
+}
+.c-filter-btn--auto.active {
+    background: #ff4444; /* Red for destructive auto */
+    color: white;
+    border-color: #ff4444;
+}
+.c-filter-group {
+    margin-top: 0.5rem;
+}
+.c-filter-label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: 0.2rem;
+    color: #ccc;
+}
+.c-filter-chip-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+.c-filter-chip {
+    padding: 2px 6px;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    opacity: 0.6;
+}
+.c-filter-chip.selected {
+    opacity: 1;
+    background: #444;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 5px var(--color-accent);
+}
+.c-filter-chip-container--effects {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
 .c-total-effect-item {
   font-family: Typewriter, serif;
   color: white;
   font-size: 0.95rem;
   text-shadow: 0 0 2px black;
+}
+
+.o-primary-btn--subtab-option {
+    width: 100%;
+    min-height: 50px; /* Ensure space */
+    height: auto; /* Allow grow */
+    line-height: 1.2;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .l-active-grid {
@@ -980,9 +1355,40 @@ export default {
     background-color: #4e342e;
 }
 
-.c-summon-controls {
+.c-summon-group {
     display: flex;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.c-summon-adv-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.c-adv-btn {
+    font-size: 0.8rem !important;
+    padding: 0.2rem 0.6rem !important;
+    min-width: 80px !important;
+    background: #333 !important;
+    border-color: #555 !important;
+}
+
+.c-adv-btn:hover:not(:disabled) {
+    background: #444 !important;
+}
+
+.c-adv-btn--active {
+    border-color: #00ff00 !important;
+    box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    color: #00ff00 !important;
+}
+
+.c-adv-btn--mighty.c-adv-btn--active {
+    border-color: #00ffff !important;
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+    color: #00ffff !important;
 }
 
 .c-summon-btn--mighty {
