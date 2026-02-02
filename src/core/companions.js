@@ -185,8 +185,8 @@ export const CompanionEffects = {
     id: "purer_summons",
     description: "Increases chance to summon higher star companions",
     format: x => `+${format(x, 2, 2)}% chance for +1 Star (Additive, Max 6)`,
-    baseValue: 1,
-    perLevel: 0.2,
+    baseValue: 2,
+    perLevel: 0.4,
     scaling: "add",
     type: "bonus",
     cost: 2,
@@ -500,8 +500,8 @@ export const Companions = {
 
     const rand = Math.random();
     let stars = 1;
-    if (rand < 0.01) stars = 3;
-    else if (rand < 0.10) stars = 2;
+    if (rand < 0.05) stars = 3;
+    else if (rand < 0.20) stars = 2;
 
     // Apply Purer Summons effect
     const bonusChance = this.totalEffect("purer_summons").toNumber();
@@ -556,8 +556,8 @@ export const Companions = {
 
     const rand = Math.random();
     let stars = 3;
-    if (rand < 0.01) stars = 5;
-    else if (rand < 0.10) stars = 4;
+    if (rand < 0.05) stars = 5;
+    else if (rand < 0.20) stars = 4;
 
     // Apply Purer Summons effect
     const bonusChance = this.totalEffect("purer_summons").toNumber();
