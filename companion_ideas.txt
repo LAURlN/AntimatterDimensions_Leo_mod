@@ -1,0 +1,82 @@
+# Companion Ideas for Antimatter Dimensions Mod
+
+theoretical
+
+to be implemented now (when removing something from here, make sure to add it below, unless it is just a minor bug fix)
+{
+upgrades subtab with a 3x3 with the following upgrades (visual like the infinity upgrades, unlocks permanantly when breaking infinity for the first time): 
+    - grandmas steal less cookies (can be bought 5 times, reduces from every 2. to every 3. to 4. t0 5. to 6. or 7 [it's randomly 6 or 7 every time] to none) (cost starts at 100 cookies, doubles every step)
+    - grandmas die less often (can be bought 5 times, reduces from 1% to 0.8% to 0.6% to 0.4% to 0.2% to 0%) (cost starts at 100 cookies, doubles every step)
+    - reduces seed rot chance (can be bought 5 times, reduces from 1% to 0.8% to 0.6% to 0.4% to 0.2% to 0%) (cost starts at 100 cookies, doubles every step)
+    - unlock fastfalling in dino game (cost: 1k cookies)
+    - unlock double jump in dino game (cost: 10k cookies)
+    - start each run at score 100 in dino game (make sure it starts at the right speed as well) (cost 5000 cookies)
+    - tickspeed upgrades have a highly reduced effect on seed growth (0.1% faster per upgrade [multiplicative]) (cost 100k cookies)
+    - galaxies increase cookie gain by 50% each (cost 1m cookies)
+
+}   
+
+already implemented (after implementing something, move it here)
+{
+    1-5 star system with gacha like summons. summons use cookies. there are 3 types of summoning levels:
+    basic: costs 1 cookies, can give 1 star to 3 star companion. (90% one star, 9% two stars, 1% three stars)
+
+    the effects should all be easily scalable, so the companions can be leveled up:
+    - antimatter production x1.5 (+0.1 per level up)
+    - tickspeed x 1.1 (+0.02 per level up)
+    - AD x10 buy multiplier +5% (+1% per level up)
+    - cookie gain +10% (+2% per level up)
+    after first big crunch:
+    - infinities x2 (+0.4 per level up) (tier 2)
+    - IP gain x2 (+0.4 per level up) (tier 2)
+    - start each crunch with one free antimatter galaxy (not included in cost scaling) (+1 on level 5, +1 on level 10)
+    - while running the dino game, cookie seeds grow 1*score% faster (+0.2*score% per level up)
+    unlocked from the start:
+    
+
+    when hovering over a companion, it shows the effects it has.
+    
+    tier 2 effects take up 2 effect slots. the summoning effect rolling work the following:
+    it first rolls for the amount of stars. the amount of stars determines the effect points available in total. then it rolls for the first effect.
+    that roll can return any unlocked effect that costs the same or less than the amount of available points. it adds that effect and then deducts the effects cost from the points.
+    if the points are 0, it stops. if the points are >0, it rolls again for another effect, with the same rules. 
+    
+    the companions tab unlocks after buying the first dimboost, the farm minigame after the first antimatter galaxy. the dino game is available from the start.
+
+    higher stars can get the same effect multiple times, if that happens, they combine to one.
+    basic summoning cost raised to 10 cookies.
+    cookie multipliers apply to the L+E+O cheat as well.
+    mighty summoning (10k cookies, 3-5 stars).
+    farm changes: precise planting mode, hire grandma (100 cookies, auto-harvest, 50% tax), seed rot (1%).
+    refinements: removed grandma text notification, clear tool, bigger grandma icon, rot persistence, layout fixes.
+    farm changes: precise planting mode, hire grandma (100 cookies, auto-harvest, 50% tax), seed rot (1%).
+    refinements: removed grandma text notification, clear tool, bigger grandma icon, rot persistence, layout fixes.
+    bug fixes & features: fixed rot auto-replant bug, added grandma death (1% chance).
+    grandma mechanics: disable auto-replant (manual plant required), tombstones on death, improved visibility.
+    death messages: implemented 70/20/10% split for common/rare/very rare messages.
+
+    common: (70%)
+    "grandma died of old age"
+    rare: (20%)
+    "grandma fell from a high place"
+    "grandma was eaten by a dragon"
+    "grandma tried to swim in lava"
+    "grandma got run over by a truck"
+    very rare: (10%)
+    "grandma was not ready for the wall of flesh"
+    "grandma was not the imposter"
+    "grandma was the imposter"
+    "grandma watched too much brainrot"
+    "grandma got yeeted into space"
+    "grandma challenged Leo to a 1v1"
+    "grandma got cancelled"
+}
+
+Ideas for the future (do not implement yet): 
+{
+    
+    
+
+
+    
+}
