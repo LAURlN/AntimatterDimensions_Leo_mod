@@ -1,4 +1,5 @@
 import { shortcuts } from "./hotkeys";
+import { DC } from "./constants";
 
 // Companion Upgrades
 export const CompanionUpgrades = {
@@ -464,7 +465,8 @@ export const Companions = {
     let totalMult = new Decimal(1);
     let totalAdd = new Decimal(0);
 
-    for (const comp of this.active) {
+    for (let i = 0; i < this.unlockedSlots; i++) {
+      const comp = this.active[i];
       if (!comp) continue;
 
       // Count local stacks of this effect
@@ -517,6 +519,31 @@ export const Companions = {
     }
 
     return def.scaling === "pow" ? totalMult : totalAdd;
+  },
+
+  get slotCosts() {
+    return [
+      DC.D0,
+      DC.E10,
+      DC.E100,
+      DC.E300,
+      DC.E500,
+      DC.E1000
+    ];
+  },
+
+  get unlockedSlots() {
+    return player.companions.unlockedSlots || 1;
+  },
+
+  buySlot() {
+    const cost = this.slotCosts[this.unlockedSlots];
+    if (!cost || player.antimatter.lt(cost)) return false;
+
+    player.antimatter = player.antimatter.sub(cost);
+    player.companions.unlockedSlots++;
+    GameUI.notify.success(`Unlocked slot ${player.companions.unlockedSlots}!`);
+    return true;
   },
 
   // Upgrades

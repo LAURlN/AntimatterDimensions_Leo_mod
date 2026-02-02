@@ -424,6 +424,7 @@ export const migrations = {
       // Initialize Companions and Farm
       if (player.companions === undefined) {
         player.companions = {
+          unlockedSlots: 1,
           active: Array(6).fill(null),
           bank: Array(50).fill(null),
           records: {
@@ -439,6 +440,11 @@ export const migrations = {
           seeds: 0,
           plots: Array(20).fill(null),
         };
+      }
+    },
+    27: player => {
+      if (player.companions && player.companions.unlockedSlots === undefined) {
+        player.companions.unlockedSlots = 1;
       }
     }
   },

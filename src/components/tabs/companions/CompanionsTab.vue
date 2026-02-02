@@ -35,7 +35,9 @@ export default {
       },
       autoSummonBasic: false,
       autoSummonMighty: false,
-      // Parry System
+      // Purchasable Slots
+      unlockedSlots: 1,
+      slotCosts: []
     };
   },
   computed: {
@@ -132,6 +134,7 @@ export default {
       
       this.autoSummonBasic = player.companions.autoSummonBasic;
       this.autoSummonMighty = player.companions.autoSummonMighty;
+      this.updateUnlockedSlots();
     },
     summonBasic() {
       const result = Companions.summon("basic");
@@ -194,6 +197,11 @@ export default {
 
           // If target is empty -> MOVE
           if (!targetItem && originItem) {
+               // Locked slot check
+               if (location !== "bank" && index >= this.unlockedSlots) {
+                   GameUI.notify.error("Slot is locked!");
+                   return;
+               }
                originList[prev.index] = null; // Move leaves hole
                targetList[index] = originItem;
                
@@ -507,7 +515,18 @@ export default {
         // Refresh selection
         this.selectedSlots = [];
         this.selectedCompanion = null;
+    },
+    buySlot() {
+        Companions.buySlot();
+        this.updateUnlockedSlots();
+    },
+    updateUnlockedSlots() {
+        this.unlockedSlots = Companions.unlockedSlots;
+        this.slotCosts = Companions.slotCosts;
     }
+  },
+  created() {
+      this.updateUnlockedSlots();
   }
 };
 
@@ -671,22 +690,32 @@ function idToName(id) {
         v-for="(companion, i) in activeSlots" 
         :key="'active-' + i" 
         class="c-companion-slot c-companion-slot--active"
-        :class="{ 'c-companion-slot--selected': isSelected('active', i), 'c-companion-slot--fav': hasFavorite(companion) }"
-        :style="{ borderColor: getCompanionColor(companion) }"
-        @click="handleSlotClick('active', i, $event)"
-        v-tooltip="getCompanionTooltip(companion)"
+        :class="{ 
+          'c-companion-slot--selected': isSelected('active', i), 
+          'c-companion-slot--fav': hasFavorite(companion),
+          'c-companion-slot--locked': i >= unlockedSlots
+        }"
+        :style="{ borderColor: i >= unlockedSlots ? '#333' : getCompanionColor(companion) }"
+        @click="i >= unlockedSlots ? buySlot() : handleSlotClick('active', i, $event)"
+        v-tooltip="i >= unlockedSlots ? ('Cost: ' + (slotCosts[i] ? format(slotCosts[i], 2) : '???') + ' Antimatter') : getCompanionTooltip(companion)"
       >
-        <div v-if="companion" class="c-companion-content" :style="{ background: 'radial-gradient(circle, ' + getCompanionColor(companion) + ' 0%, rgba(0,0,0,0) 80%)' }">
-          <span 
-            v-for="(pos, j) in getSymbolPositions(companion.stars)" 
-            :key="j"
-            class="c-companion-symbol-individual"
-            :style="{ transform: `translate(${pos.x}px, ${pos.y}px)` }"
-          >
-            {{ getCompanionSymbol(companion) }}
-          </span>
+        <div v-if="i < unlockedSlots" class="c-slot-fill">
+            <div v-if="companion" class="c-companion-content" :style="{ background: 'radial-gradient(circle, ' + getCompanionColor(companion) + ' 0%, rgba(0,0,0,0) 80%)' }">
+              <span 
+                v-for="(pos, j) in getSymbolPositions(companion.stars)" 
+                :key="j"
+                class="c-companion-symbol-individual"
+                :style="{ transform: `translate(${pos.x}px, ${pos.y}px)` }"
+              >
+                {{ getCompanionSymbol(companion) }}
+              </span>
+            </div>
+            <span v-else class="c-slot-id">{{ i + 1 }}</span>
         </div>
-        <span v-else class="c-slot-id">{{ i + 1 }}</span>
+        <div v-else class="c-locked-slot">
+            <div class="c-lock-icon">🔒</div>
+            <div class="c-lock-cost">{{ format(slotCosts[i], 0) }}</div>
+        </div>
       </div>
     </div>
 
@@ -720,22 +749,32 @@ function idToName(id) {
             v-for="(companion, i) in loadout" 
             :key="'loadout-' + lIdx + '-' + i" 
             class="c-companion-slot c-companion-slot--loadout"
-            :class="{ 'c-companion-slot--selected': isSelected('loadout-' + lIdx, i), 'c-companion-slot--fav': hasFavorite(companion) }"
-            :style="{ borderColor: getCompanionColor(companion) }"
-            @click="handleSlotClick('loadout-' + lIdx, i, $event)"
-            v-tooltip="getCompanionTooltip(companion)"
+            :class="{ 
+              'c-companion-slot--selected': isSelected('loadout-' + lIdx, i), 
+              'c-companion-slot--fav': hasFavorite(companion),
+              'c-companion-slot--locked': i >= unlockedSlots
+            }"
+            :style="{ borderColor: i >= unlockedSlots ? '#333' : getCompanionColor(companion) }"
+            @click="i >= unlockedSlots ? buySlot() : handleSlotClick('loadout-' + lIdx, i, $event)"
+            v-tooltip="i >= unlockedSlots ? ('Cost: ' + (slotCosts[i] ? format(slotCosts[i], 2) : '???') + ' Antimatter') : getCompanionTooltip(companion)"
           >
-            <div v-if="companion" class="c-companion-content" :style="{ background: 'radial-gradient(circle, ' + getCompanionColor(companion) + ' 0%, rgba(0,0,0,0) 80%)' }">
-              <span 
-                v-for="(pos, j) in getSymbolPositions(companion.stars)" 
-                :key="j"
-                class="c-companion-symbol-individual"
-                :style="{ transform: `translate(${pos.x * 0.5}px, ${pos.y * 0.5}px)` }"
-              >
-                {{ getCompanionSymbol(companion) }}
-              </span>
+            <div v-if="i < unlockedSlots" class="c-slot-fill">
+                <div v-if="companion" class="c-companion-content" :style="{ background: 'radial-gradient(circle, ' + getCompanionColor(companion) + ' 0%, rgba(0,0,0,0) 80%)' }">
+                  <span 
+                    v-for="(pos, j) in getSymbolPositions(companion.stars)" 
+                    :key="j"
+                    class="c-companion-symbol-individual"
+                    :style="{ transform: `translate(${pos.x * 0.5}px, ${pos.y * 0.5}px)` }"
+                  >
+                    {{ getCompanionSymbol(companion) }}
+                  </span>
+                </div>
+                <span v-else class="c-slot-id">{{ i + 1 }}</span>
             </div>
-            <span v-else class="c-slot-id">{{ i + 1 }}</span>
+            <div v-else class="c-locked-slot c-locked-slot--small">
+                <div class="c-lock-icon">🔒</div>
+                <div class="c-lock-cost">{{ format(slotCosts[i], 0) }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1407,5 +1446,52 @@ function idToName(id) {
     align-items: center;
     gap: 0.2rem;
     font-style: italic;
+}
+
+.c-companion-slot--locked {
+    background: rgba(0, 0, 0, 0.8) !important;
+    cursor: pointer;
+    position: relative;
+    border-style: dashed !important;
+}
+
+.c-companion-slot--locked:hover {
+    background: rgba(40, 40, 40, 0.8) !important;
+    border-color: var(--color-accent) !important;
+}
+
+.c-locked-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+}
+
+.c-lock-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.2rem;
+    opacity: 0.3;
+    transition: all 0.2s;
+}
+
+.c-companion-slot--locked:hover .c-lock-icon {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.c-lock-cost {
+    font-size: 0.7rem;
+    color: var(--color-accent);
+    font-weight: bold;
+}
+
+.c-locked-slot--small .c-lock-icon {
+    font-size: 1rem;
+}
+
+.c-locked-slot--small .c-lock-cost {
+    display: none; /* Hide cost in small ones to avoid clutter */
 }
 </style>

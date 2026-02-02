@@ -207,6 +207,7 @@ window.player = {
   galaxies: 0,
   cookies: DC.D0,
   companions: {
+    unlockedSlots: 1,
     active: Array(6).fill(null),
     activeLoadoutName: "Active Loadout",
     bank: Array(50).fill(null),
